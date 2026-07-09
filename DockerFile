@@ -1,0 +1,33 @@
+# Stage 1: Build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+
+# Copy solution and project files
+COPY ["Figuritas.sln", "./"]
+COPY ["Figuritas.Consumer/Figuritas.Consumer.csproj", "Figuritas.Consumer/"]
+COPY ["Figuritas.Abstractions/Figuritas.Abstractions.csproj", "Figuritas.Abstractions/"]
+
+# Restore dependencies
+RUN dotnet restore "Figuritas.sln"
+
+# Copy all source code
+COPY . .
+
+# Build the application
+RUN dotnet build "Figuritas.sln" -c Release -o /app/build
+
+# Stage 2: Publish
+FROM build AS publish
+RUN dotnet publish "Figuritas.Consumer/Figuritas.Consumer.csproj" -c Release -o /app/publish /p:UseAppHost=false
+
+# Stage 3: Runtime
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
+WORKDIR /app
+
+COPY --from=publish /app/publish .
+
+EXPOSE 5000 5001
+
+ENV ASPNETCORE_URLS=http://+:5000
+
+ENTRYPOINT ["dotnet", "Figuritas.Consumer.dll"]
